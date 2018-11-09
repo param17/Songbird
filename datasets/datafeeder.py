@@ -5,11 +5,11 @@ import tensorflow as tf
 import threading
 import time
 import traceback
-from text import cmudict, text_to_sequence
+from scipy.misc import imread, imresize
 from util.infolog import log
 
+
 _batches_per_group = 32
-_p_cmudict = 0.5
 _pad = 0
 
 
@@ -19,7 +19,6 @@ class DataFeeder(threading.Thread):
         super(DataFeeder, self).__init__()
         self._coord = coordinator
         self._hparams = hparams
-        self._cleaner_names = [x.strip() for x in hparams.cleaners.split(',')]
         self._offset = 0
 
         # Load metadata:
@@ -32,14 +31,14 @@ class DataFeeder(threading.Thread):
         # Create placeholders for inputs and targets. Don't specify batch size because we want to
         # be able to feed different sized batches at eval time.
         self._placeholders = [
-            tf.placeholder(tf.int32, [None, None], 'inputs'),
+            tf.placeholder(tf.float32, [None, self._hparams.image_dim, self._hparams.image_dim, 3], 'inputs'),
             tf.placeholder(tf.int32, [None], 'input_lengths'),
             tf.placeholder(tf.float32, [None, None, hparams.num_mels], 'mel_targets'),
             tf.placeholder(tf.float32, [None, None, hparams.num_freq], 'linear_targets')
         ]
 
         # Create queue for buffering data:
-        queue = tf.FIFOQueue(8, [tf.int32, tf.int32, tf.float32, tf.float32], name='input_queue')
+        queue = tf.FIFOQueue(8, [tf.float32, tf.int32, tf.float32, tf.float32], name='input_queue')
         self._enqueue_op = queue.enqueue(self._placeholders)
         self.inputs, self.input_lengths, self.mel_targets, self.linear_targets = queue.dequeue()
         self.inputs.set_shape(self._placeholders[0].shape)
@@ -50,15 +49,6 @@ class DataFeeder(threading.Thread):
         # Load CMUDict: If enabled, this will randomly substitute some words in the training data with
         # their ARPABet equivalents, which will allow you to also pass ARPABet to the model for
         # synthesis (useful for proper nouns, etc.)
-        if hparams.use_cmudict:
-            cmudict_path = os.path.join(self._datadir, 'cmudict-0.7b')
-            if not os.path.isfile(cmudict_path):
-                raise Exception('If use_cmudict=True, you must download ' +
-                                'http://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict-0.7b to %s' % cmudict_path)
-            self._cmudict = cmudict.CMUDict(cmudict_path, keep_ambiguous=False)
-            log('Loaded CMUDict with %d unambiguous entries' % len(self._cmudict))
-        else:
-            self._cmudict = None
 
     def start_in_session(self, session):
         self._session = session
@@ -98,18 +88,11 @@ class DataFeeder(threading.Thread):
         meta = self._metadata[self._offset]
         self._offset += 1
 
-        text = meta[3]
-        if self._cmudict and random.random() < _p_cmudict:
-            text = ' '.join([self._maybe_get_arpabet(word) for word in text.split(' ')])
-
-        input_data = np.asarray(text_to_sequence(text, self._cleaner_names), dtype=np.int32)
+        image = imread(os.path.join(self._datadir, meta[3]), mode='RGB')
+        input_data = imresize(image, (self._hparams.image_dim, self._hparams.image_dim)).astype('float32')
         linear_target = np.load(os.path.join(self._datadir, meta[0]))
         mel_target = np.load(os.path.join(self._datadir, meta[1]))
-        return (input_data, mel_target, linear_target, len(linear_target))
-
-    def _maybe_get_arpabet(self, word):
-        arpabet = self._cmudict.lookup(word)
-        return '{%s}' % arpabet[0] if arpabet is not None and random.random() < 0.5 else word
+        return input_data, mel_target, linear_target, len(linear_target)
 
 
 def _prepare_batch(batch, outputs_per_step):
@@ -118,7 +101,7 @@ def _prepare_batch(batch, outputs_per_step):
     input_lengths = np.asarray([len(x[0]) for x in batch], dtype=np.int32)
     mel_targets = _prepare_targets([x[1] for x in batch], outputs_per_step)
     linear_targets = _prepare_targets([x[2] for x in batch], outputs_per_step)
-    return (inputs, input_lengths, mel_targets, linear_targets)
+    return inputs, input_lengths, mel_targets, linear_targets
 
 
 def _prepare_inputs(inputs):

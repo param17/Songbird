@@ -1,10 +1,10 @@
 import tensorflow as tf
 from tensorflow.contrib.rnn import GRUCell, MultiRNNCell, OutputProjectionWrapper, ResidualWrapper
 from tensorflow.contrib.seq2seq import BasicDecoder, BahdanauAttention, AttentionWrapper
-from text.symbols import symbols
+
 from util.infolog import log
 from .helpers import TacoTestHelper, TacoTrainingHelper
-from .modules import encoder_cbhg, post_cbhg, prenet
+from .modules import encoder_cbhg, post_cbhg, prenet, vgg19_pretrained_last_fc
 from .rnn_wrappers import DecoderPrenetWrapper, ConcatOutputAndAttentionWrapper
 
 
@@ -12,7 +12,7 @@ class Tacotron:
     def __init__(self, hparams):
         self._hparams = hparams
 
-    def initialize(self, inputs, input_lengths, mel_targets=None, linear_targets=None):
+    def initialize(self, inputs, input_lengths, vgg19_model_path, mel_targets=None, linear_targets=None):
         """Initializes the model for inference.
 
         Sets "mel_outputs", "linear_outputs", and "alignments" fields.
@@ -22,6 +22,7 @@ class Tacotron:
             steps in the input time series, and values are character IDs
           input_lengths: int32 Tensor with shape [N] where N is batch size and values are the lengths
             of each sequence in inputs.
+          vgg19_model_path: File path to the npy file containing pretrained weights of the VGG19 model
           mel_targets: float32 Tensor with shape [N, T_out, M] where N is batch size, T_out is number
             of steps in the output time series, M is num_mels, and values are entries in the mel
             spectrogram. Only needed for training.
@@ -34,14 +35,12 @@ class Tacotron:
             batch_size = tf.shape(inputs)[0]
             hp = self._hparams
 
-            # Embeddings
-            embedding_table = tf.get_variable(
-                'embedding', [len(symbols), hp.embed_depth], dtype=tf.float32,
-                initializer=tf.truncated_normal_initializer(stddev=0.5))
-            embedded_inputs = tf.nn.embedding_lookup(embedding_table, inputs)  # [N, T_in, embed_depth=256]
+            # VGG19
+            vgg19_fc_3d = tf.reshape(vgg19_pretrained_last_fc(inputs, vgg19_model_path), [-1, -1, 1])
+            vgg19_fc_duplicated = tf.tile(vgg19_fc_3d, [1, 1, hp.embed_depth])
 
             # Encoder
-            prenet_outputs = prenet(embedded_inputs, is_training, hp.prenet_depths)  # [N, T_in, prenet_depths[-1]=128]
+            prenet_outputs = prenet(vgg19_fc_duplicated, is_training, hp.prenet_depths)  # [N, T_in, prenet_depths[-1]=128]
             encoder_outputs = encoder_cbhg(prenet_outputs, input_lengths, is_training,  # [N, T_in, encoder_depth=256]
                                            hp.encoder_depth)
 
@@ -97,7 +96,6 @@ class Tacotron:
             self.mel_targets = mel_targets
             self.linear_targets = linear_targets
             log('Initialized Tacotron model. Dimensions: ')
-            log('  embedding:               %d' % embedded_inputs.shape[-1])
             log('  prenet out:              %d' % prenet_outputs.shape[-1])
             log('  encoder out:             %d' % encoder_outputs.shape[-1])
             log('  attention out:           %d' % attention_cell.output_size)
