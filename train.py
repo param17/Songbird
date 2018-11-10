@@ -1,3 +1,4 @@
+# coding=utf-8
 import argparse
 from datetime import datetime
 import math
@@ -66,9 +67,9 @@ def train(log_dir, args):
         stats = add_stats(model)
 
     # Bookkeeping:
-    time_window = ValueWindow(100)
-    loss_window = ValueWindow(100)
-    saver = tf.train.Saver(max_to_keep=5, keep_checkpoint_every_n_hours=2)
+    time_window = ValueWindow()
+    loss_window = ValueWindow()
+    saver = tf.train.Saver(keep_checkpoint_every_n_hours=2)
 
     # Train!
     with tf.Session() as sess:

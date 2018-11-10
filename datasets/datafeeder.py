@@ -5,7 +5,7 @@ import tensorflow as tf
 import threading
 import time
 import traceback
-from scipy.misc import imread, imresize
+from scipy.misc import imread
 from util.infolog import log
 
 
@@ -89,7 +89,8 @@ class DataFeeder(threading.Thread):
         self._offset += 1
 
         image = imread(os.path.join(self._datadir, meta[3]), mode='RGB')
-        input_data = imresize(image, (self._hparams.image_dim, self._hparams.image_dim)).astype('float32')
+        assert image.shape == (self._hparams.image_dim, self._hparams.image_dim, 3)
+        input_data = image.astype('float32')
         linear_target = np.load(os.path.join(self._datadir, meta[0]))
         mel_target = np.load(os.path.join(self._datadir, meta[1]))
         return input_data, mel_target, linear_target, len(linear_target)
