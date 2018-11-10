@@ -5,6 +5,7 @@ __pycache__/
 run*.sh
 .idea/
 LJSpeech-1.1/
+MultiModalDataset-1.0/
 logs*/
 tmp/
 training/
