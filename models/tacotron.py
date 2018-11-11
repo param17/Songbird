@@ -36,7 +36,7 @@ class Tacotron:
             hp = self._hparams
 
             # VGG19
-            vgg19_fc_3d = tf.reshape(vgg19_pretrained_last_fc(inputs, vgg19_model_path), [-1, -1, 1])
+            vgg19_fc_3d = tf.expand_dims(vgg19_pretrained_last_fc(inputs, vgg19_model_path), 1)
             vgg19_fc_duplicated = tf.tile(vgg19_fc_3d, [1, 1, hp.embed_depth])
 
             # Encoder

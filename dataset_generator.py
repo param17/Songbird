@@ -17,13 +17,14 @@ def __chunk_category(category, args):
     with open(os.path.join(category_base_dir, 'preprocess_file_list.txt'), 'w') as f:
         for path, _, filenames in os.walk(category_base_dir):
             for filename in filenames:
-                raw_files.append(filename)
-                f.write("file '" + path + '/' + filename + "'\n")
+                if str.endswith(filename, '.wav'):
+                    raw_files.append(filename)
+                    f.write("file '" + path + '/' + filename + "'\n")
 
     # Step 2: concatenate everything into one massive wav file
     category_output_dir = os.path.join(category_base_dir, 'preprocessed')
-    os.makedirs(category_output_dir, exist_ok=True)
-    os.system('ffmpeg -f concat -safe 0 -i {}/preprocess_file_list.txt'
+    os.makedirs(category_output_dir)
+    os.system('ffmpeg -f concat -safe 0 -i {}/preprocess_file_list.txt '
               '{}/preprocess_all_audio.wav'.format(category_base_dir, category_output_dir))
 
     # Delete raw audio files
@@ -62,11 +63,11 @@ def __move_images(category, args, img_output_base_dir):
 
 
 def __move_chunked_audio(category, args, wav_output_base_dir):
-    category_input_base_dir = __input_wav_dir(args, category)
+    category_input_base_dir = os.path.join(__input_wav_dir(args, category), 'preprocessed')
     index = 0
     for path, _, filenames in os.walk(category_input_base_dir):
         for file in filenames:
-            output_filename = '{}p{}.png'.format(category, index)
+            output_filename = '{}p{}.wav'.format(category, index)
             shutil.move(os.path.join(os.path.join(category_input_base_dir, file)),
                         os.path.join(wav_output_base_dir, output_filename))
             index += 1
@@ -74,11 +75,11 @@ def __move_chunked_audio(category, args, wav_output_base_dir):
 
 
 def __write_metadata(base_output_dir, category, image_count, audio_count):
-    with open(os.path.join(base_output_dir, 'metadata.txt'), 'a+') as f:
+    with open(os.path.join(base_output_dir, 'metadata.txt'), 'a') as f:
         for image_index, audio_index in itertools.product(range(image_count), range(audio_count)):
             image_file_name = '{}p{}.png'.format(category, image_index)
             audio_file_name = '{}p{}.wav'.format(category, audio_index)
-            f.write('{}|{}'.format(audio_file_name, image_file_name))
+            f.write('{}|{}\n'.format(audio_file_name, image_file_name))
 
 
 def create_dataset(args):
@@ -92,7 +93,7 @@ def create_dataset(args):
     for category in range(args.categories):
         image_count = __move_images(category, args, img_output_base_dir)
         audio_count = __move_chunked_audio(category, args, wav_output_base_dir)
-        __write_metadata(base_output_dir, args.categories, image_count, audio_count)
+        __write_metadata(base_output_dir, category, image_count, audio_count)
 
 
 def main():
@@ -100,8 +101,8 @@ def main():
     parser.add_argument('--base_dir', default=os.path.expanduser('~/tacotron'))
     parser.add_argument('--output', default='MultiModalDataset-1.0')
     parser.add_argument('--input', default='raw_data')
-    parser.add_argument('--categories', type=int, default=6)
-    parser.add_argument('--chuck_len', type=int, default=5)
+    parser.add_argument('--categories', type=int, default=5)
+    parser.add_argument('--chunk_len', type=int, default=1)
     args = parser.parse_args()
     chunk_audio_samples(args)
     create_dataset(args)

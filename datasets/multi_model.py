@@ -27,8 +27,8 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
     with open(os.path.join(in_dir, 'metadata.txt'), encoding='utf-8') as f:
         for line in f:
             parts = line.strip().split('|')
-            wav_path = os.path.join(in_dir, 'wavs', '%s.wav' % parts[0])
-            image_path = parts[1]
+            wav_path = os.path.join(in_dir, 'wavs', parts[0])
+            image_path = os.path.join(in_dir, 'imgs', parts[1])
             futures.append(executor.submit(partial(_process_chirps, out_dir, index, wav_path, image_path)))
             index += 1
     return [future.result() for future in tqdm(futures)]
@@ -67,7 +67,7 @@ def _process_chirps(out_dir, index, wav_path, image_path):
     np.save(os.path.join(out_dir, mel_filename), mel_spectrogram.T, allow_pickle=False)
 
     # Load image into numpy array
-    raw_image = imread(image_path)
+    raw_image = imread(image_path, mode='RGB')
 
     # Pre-process image
     preprocessed_image = imresize(raw_image, (224, 224, 3))

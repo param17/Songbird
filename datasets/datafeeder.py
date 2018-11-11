@@ -5,7 +5,6 @@ import tensorflow as tf
 import threading
 import time
 import traceback
-from scipy.misc import imread
 from util.infolog import log
 
 
@@ -88,7 +87,7 @@ class DataFeeder(threading.Thread):
         meta = self._metadata[self._offset]
         self._offset += 1
 
-        image = imread(os.path.join(self._datadir, meta[3]), mode='RGB')
+        image = np.load(os.path.join(self._datadir, meta[3]))
         assert image.shape == (self._hparams.image_dim, self._hparams.image_dim, 3)
         input_data = image.astype('float32')
         linear_target = np.load(os.path.join(self._datadir, meta[0]))
