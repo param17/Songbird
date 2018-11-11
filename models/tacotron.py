@@ -4,7 +4,7 @@ from tensorflow.contrib.seq2seq import BasicDecoder, BahdanauAttention, Attentio
 
 from util.infolog import log
 from .helpers import TacoTestHelper, TacoTrainingHelper
-from .modules import encoder_cbhg, post_cbhg, prenet, vgg19_pretrained_last_fc
+from .modules import encoder_cbhg, post_cbhg, prenet, Vgg19
 from .rnn_wrappers import DecoderPrenetWrapper, ConcatOutputAndAttentionWrapper
 
 
@@ -36,11 +36,14 @@ class Tacotron:
             hp = self._hparams
 
             # VGG19
-            vgg19_fc_3d = tf.expand_dims(vgg19_pretrained_last_fc(inputs, vgg19_model_path), 1)
-            vgg19_fc_duplicated = tf.tile(vgg19_fc_3d, [1, 1, hp.embed_depth])
+            self.vgg19_pretrained = Vgg19(vgg19_model_path)
+            vgg_output = tf.map_fn(self.__preprocess_before_vgg19, inputs)
+
+            # vgg19_fc_3d = tf.expand_dims(vgg19_pretrained_last_fc(inputs, vgg19_model_path), 1)
+            # vgg19_fc_duplicated = tf.tile(vgg19_fc_3d, [1, 1, hp.embed_depth])
 
             # Encoder
-            prenet_outputs = prenet(vgg19_fc_duplicated, is_training, hp.prenet_depths)  # [N, T_in, prenet_depths[-1]=128]
+            prenet_outputs = prenet(vgg_output, is_training, hp.prenet_depths)  # [N, T_in, prenet_depths[-1]=128]
             encoder_outputs = encoder_cbhg(prenet_outputs, input_lengths, is_training,  # [N, T_in, encoder_depth=256]
                                            hp.encoder_depth)
 
@@ -105,6 +108,10 @@ class Tacotron:
             log('  decoder out (1 frame):   %d' % mel_outputs.shape[-1])
             log('  postnet out:             %d' % post_outputs.shape[-1])
             log('  linear out:              %d' % linear_outputs.shape[-1])
+
+    def __preprocess_before_vgg19(self, tensor):
+        fc_output = tf.transpose(self.vgg19_pretrained.build(tf.expand_dims(tensor, 0)))
+        return tf.tile(fc_output, [1, self._hparams.embed_depth])
 
     def add_loss(self):
         """Adds loss to the model. Sets "loss" field. initialize must have been called."""
