@@ -12,7 +12,7 @@ class Tacotron:
     def __init__(self, hparams):
         self._hparams = hparams
 
-    def initialize(self, inputs, input_lengths, vgg19_model_path, mel_targets=None, linear_targets=None):
+    def initialize(self, inputs, vgg19_model_path, mel_targets=None, linear_targets=None):
         """Initializes the model for inference.
 
         Sets "mel_outputs", "linear_outputs", and "alignments" fields.
@@ -20,8 +20,6 @@ class Tacotron:
         Args:
           inputs: int32 Tensor with shape [N, T_in] where N is batch size, T_in is number of
             steps in the input time series, and values are character IDs
-          input_lengths: int32 Tensor with shape [N] where N is batch size and values are the lengths
-            of each sequence in inputs.
           vgg19_model_path: File path to the npy file containing pretrained weights of the VGG19 model
           mel_targets: float32 Tensor with shape [N, T_out, M] where N is batch size, T_out is number
             of steps in the output time series, M is num_mels, and values are entries in the mel
@@ -39,8 +37,8 @@ class Tacotron:
             self.vgg19_pretrained = Vgg19(vgg19_model_path)
             vgg_output = tf.map_fn(self.__preprocess_before_vgg19, inputs)
 
-            # vgg19_fc_3d = tf.expand_dims(vgg19_pretrained_last_fc(inputs, vgg19_model_path), 1)
-            # vgg19_fc_duplicated = tf.tile(vgg19_fc_3d, [1, 1, hp.embed_depth])
+            last_fc_output_size = tf.shape(vgg_output)[1]
+            input_lengths = tf.tile([last_fc_output_size], [batch_size])
 
             # Encoder
             prenet_outputs = prenet(vgg_output, is_training, hp.prenet_depths)  # [N, T_in, prenet_depths[-1]=128]

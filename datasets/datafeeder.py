@@ -7,13 +7,13 @@ import time
 import traceback
 from util.infolog import log
 
-
 _batches_per_group = 32
 _pad = 0
 
 
 class DataFeeder(threading.Thread):
     """Feeds batches of data into a queue on a background thread."""
+
     def __init__(self, coordinator, metadata_filename, hparams):
         super(DataFeeder, self).__init__()
         self._coord = coordinator
@@ -31,23 +31,17 @@ class DataFeeder(threading.Thread):
         # be able to feed different sized batches at eval time.
         self._placeholders = [
             tf.placeholder(tf.float32, [None, self._hparams.image_dim, self._hparams.image_dim, 3], 'inputs'),
-            tf.placeholder(tf.int32, [None], 'input_lengths'),
             tf.placeholder(tf.float32, [None, None, hparams.num_mels], 'mel_targets'),
             tf.placeholder(tf.float32, [None, None, hparams.num_freq], 'linear_targets')
         ]
 
         # Create queue for buffering data:
-        queue = tf.FIFOQueue(8, [tf.float32, tf.int32, tf.float32, tf.float32], name='input_queue')
+        queue = tf.FIFOQueue(8, [tf.float32, tf.float32, tf.float32], name='input_queue')
         self._enqueue_op = queue.enqueue(self._placeholders)
-        self.inputs, self.input_lengths, self.mel_targets, self.linear_targets = queue.dequeue()
+        self.inputs, self.mel_targets, self.linear_targets = queue.dequeue()
         self.inputs.set_shape(self._placeholders[0].shape)
-        self.input_lengths.set_shape(self._placeholders[1].shape)
-        self.mel_targets.set_shape(self._placeholders[2].shape)
-        self.linear_targets.set_shape(self._placeholders[3].shape)
-
-        # Load CMUDict: If enabled, this will randomly substitute some words in the training data with
-        # their ARPABet equivalents, which will allow you to also pass ARPABet to the model for
-        # synthesis (useful for proper nouns, etc.)
+        self.mel_targets.set_shape(self._placeholders[1].shape)
+        self.linear_targets.set_shape(self._placeholders[2].shape)
 
     def start_in_session(self, session):
         self._session = session
@@ -67,7 +61,7 @@ class DataFeeder(threading.Thread):
         # Read a group of examples:
         n = self._hparams.batch_size
         r = self._hparams.outputs_per_step
-        examples = [self._get_next_example() for i in range(n * _batches_per_group)]
+        examples = [self._get_next_example() for _ in range(n * _batches_per_group)]
 
         # Bucket examples based on similar output sequence length for efficiency:
         examples.sort(key=lambda x: x[-1])
@@ -97,25 +91,15 @@ class DataFeeder(threading.Thread):
 
 def _prepare_batch(batch, outputs_per_step):
     random.shuffle(batch)
-    inputs = _prepare_inputs([x[0] for x in batch])
-    input_lengths = np.asarray([len(x[0]) for x in batch], dtype=np.int32)
+    inputs = np.asarray([x[0] for x in batch])
     mel_targets = _prepare_targets([x[1] for x in batch], outputs_per_step)
     linear_targets = _prepare_targets([x[2] for x in batch], outputs_per_step)
-    return inputs, input_lengths, mel_targets, linear_targets
-
-
-def _prepare_inputs(inputs):
-    max_len = max((len(x) for x in inputs))
-    return np.stack([_pad_input(x, max_len) for x in inputs])
+    return inputs, mel_targets, linear_targets
 
 
 def _prepare_targets(targets, alignment):
     max_len = max((len(t) for t in targets)) + 1
     return np.stack([_pad_target(t, _round_up(max_len, alignment)) for t in targets])
-
-
-def _pad_input(x, length):
-    return np.pad(x, (0, length - x.shape[0]), mode='constant', constant_values=_pad)
 
 
 def _pad_target(t, length):
