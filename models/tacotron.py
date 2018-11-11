@@ -4,7 +4,7 @@ from tensorflow.contrib.seq2seq import BasicDecoder, BahdanauAttention, Attentio
 
 from util.infolog import log
 from .helpers import TacoTestHelper, TacoTrainingHelper
-from .modules import encoder_cbhg, post_cbhg, prenet, Vgg19
+from .modules import encoder_cbhg_with_vgg19, post_cbhg, prenet, Vgg19
 from .rnn_wrappers import DecoderPrenetWrapper, ConcatOutputAndAttentionWrapper
 
 
@@ -42,8 +42,8 @@ class Tacotron:
 
             # Encoder
             prenet_outputs = prenet(vgg_output, is_training, hp.prenet_depths)  # [N, T_in, prenet_depths[-1]=128]
-            encoder_outputs = encoder_cbhg(prenet_outputs, input_lengths, is_training,  # [N, T_in, encoder_depth=256]
-                                           hp.encoder_depth)
+            encoder_outputs = encoder_cbhg_with_vgg19(prenet_outputs, input_lengths,  # [N, T_in, encoder_depth=256]
+                                                      hp.encoder_depth)
 
             # Attention
             attention_cell = AttentionWrapper(
@@ -97,7 +97,6 @@ class Tacotron:
             self.mel_targets = mel_targets
             self.linear_targets = linear_targets
             log('Initialized Tacotron model. Dimensions: ')
-            log('  prenet out:              %d' % prenet_outputs.shape[-1])
             log('  encoder out:             %d' % encoder_outputs.shape[-1])
             log('  attention out:           %d' % attention_cell.output_size)
             log('  concat attn & out:       %d' % concat_cell.output_size)

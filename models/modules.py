@@ -16,15 +16,11 @@ def prenet(inputs, is_training, layer_sizes, scope=None):
     return x
 
 
-def encoder_cbhg(inputs, input_lengths, is_training, depth):
-    input_channels = inputs.get_shape()[2]
-    return cbhg(
+def encoder_cbhg_with_vgg19(inputs, input_lengths, depth):
+    return mod_cbhg_with_vgg19(
         inputs,
         input_lengths,
-        is_training,
         scope='encoder_cbhg',
-        K=16,
-        projections=[128, input_channels],
         depth=depth)
 
 
@@ -37,6 +33,32 @@ def post_cbhg(inputs, input_dim, is_training, depth):
         K=8,
         projections=[256, input_dim],
         depth=depth)
+
+
+def __highway_with_bi_rnn(depth, highway_input, input_lengths):
+    half_depth = depth // 2
+    assert half_depth * 2 == depth, 'encoder and postnet depths must be even.'
+
+    # Handle dimensionality mismatch:
+    if highway_input.shape[2] != half_depth:
+        highway_input = tf.layers.dense(highway_input, half_depth)
+    # 4-layer HighwayNet:
+    for i in range(4):
+        highway_input = highwaynet(highway_input, 'highway_%d' % (i + 1), half_depth)
+    rnn_input = highway_input
+    # Bidirectional RNN
+    outputs, states = tf.nn.bidirectional_dynamic_rnn(
+        GRUCell(half_depth),
+        GRUCell(half_depth),
+        rnn_input,
+        sequence_length=input_lengths,
+        dtype=tf.float32)
+    return tf.concat(outputs, axis=2)  # Concat forward and backward
+
+
+def mod_cbhg_with_vgg19(highway_input, input_lengths, scope, depth):
+    with tf.variable_scope(scope):
+        return __highway_with_bi_rnn(depth, highway_input, input_lengths)
 
 
 def cbhg(inputs, input_lengths, is_training, scope, K, projections, depth):
@@ -62,26 +84,7 @@ def cbhg(inputs, input_lengths, is_training, scope, K, projections, depth):
         # Residual connection:
         highway_input = proj2_output + inputs
 
-        half_depth = depth // 2
-        assert half_depth * 2 == depth, 'encoder and postnet depths must be even.'
-
-        # Handle dimensionality mismatch:
-        if highway_input.shape[2] != half_depth:
-            highway_input = tf.layers.dense(highway_input, half_depth)
-
-        # 4-layer HighwayNet:
-        for i in range(4):
-            highway_input = highwaynet(highway_input, 'highway_%d' % (i + 1), half_depth)
-        rnn_input = highway_input
-
-        # Bidirectional RNN
-        outputs, states = tf.nn.bidirectional_dynamic_rnn(
-            GRUCell(half_depth),
-            GRUCell(half_depth),
-            rnn_input,
-            sequence_length=input_lengths,
-            dtype=tf.float32)
-        return tf.concat(outputs, axis=2)  # Concat forward and backward
+        return __highway_with_bi_rnn(depth, highway_input, input_lengths)
 
 
 def highwaynet(inputs, scope, depth):
