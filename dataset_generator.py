@@ -37,7 +37,7 @@ def __chunk_category(category, args):
 
     # Step 3: Down sample and split the big file into chunks
     for i in range(int(length) // args.chunk_len):
-        os.system('ffmpeg -ss {} -t {} -i {}/preprocess_all_audio.wav -ac 1 -ab 16k -ar 16000 {}/{}p{}.wav'
+        os.system('ffmpeg -ss {} -t {} -i {}/preprocess_all_audio.wav -ac 1 -ab 8k -ar 8000 {}/{}p{}.wav'
                   .format(i * args.chunk_len, args.chunk_len, category_output_dir, category_output_dir, category, i))
 
     # # Step 4: clean up temp files
@@ -53,8 +53,12 @@ def chunk_audio_samples(args):
 def __move_images(category, args, img_output_base_dir):
     category_input_base_dir = os.path.join(args.base_dir, args.input, 'imgs', str(category))
     index = 0
+    image_limit = args.imgs
     for path, _, filenames in os.walk(category_input_base_dir):
         for file in filenames:
+            if image_limit != -1 and index >= image_limit:
+                break
+
             output_filename = '{}p{}.png'.format(category, index)
             shutil.move(os.path.join(os.path.join(category_input_base_dir, file)),
                         os.path.join(img_output_base_dir, output_filename))
@@ -65,8 +69,12 @@ def __move_images(category, args, img_output_base_dir):
 def __move_chunked_audio(category, args, wav_output_base_dir):
     category_input_base_dir = os.path.join(__input_wav_dir(args, category), 'preprocessed')
     index = 0
+    audio_limit = args.wavs
     for path, _, filenames in os.walk(category_input_base_dir):
         for file in filenames:
+            if audio_limit != -1 and index >= audio_limit:
+                break
+
             output_filename = '{}p{}.wav'.format(category, index)
             shutil.move(os.path.join(os.path.join(category_input_base_dir, file)),
                         os.path.join(wav_output_base_dir, output_filename))
@@ -103,6 +111,8 @@ def main():
     parser.add_argument('--input', default='raw_data')
     parser.add_argument('--categories', type=int, default=6)
     parser.add_argument('--chunk_len', type=int, default=5)
+    parser.add_argument('--imgs', help='Number of images to add to the dataset', type=int, default=-1)
+    parser.add_argument('--wavs', help='Number of Audio files to add to the dataset', type=int, default=-1)
     args = parser.parse_args()
     chunk_audio_samples(args)
     create_dataset(args)
