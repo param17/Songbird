@@ -123,7 +123,7 @@ def train(log_dir, args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--base_dir', default=os.path.expanduser('~/tacotron'))
+    parser.add_argument('--base_dir', default=os.path.expanduser('~/Songbird'))
     parser.add_argument('--input', default='training/train.txt')
     parser.add_argument('--model', default='tacotron')
     parser.add_argument('--vgg19_pretrained_model', default='training/vgg19/vgg19.npy')

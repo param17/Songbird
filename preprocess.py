@@ -42,7 +42,7 @@ def fetch_pre_trained_model(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--base_dir', default=os.path.expanduser('~/tacotron'))
+    parser.add_argument('--base_dir', default=os.path.expanduser('~/Songbird'))
     parser.add_argument('--output', default='training')
     parser.add_argument('--num_workers', type=int, default=cpu_count())
     parser.add_argument('--vgg19_model_path', default='vgg19.npy', help='Relative path to the pre-trained VGG-19 model')

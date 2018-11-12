@@ -106,7 +106,7 @@ def create_dataset(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--base_dir', default=os.path.expanduser('~/tacotron'))
+    parser.add_argument('--base_dir', default=os.path.expanduser('~/Songbird'))
     parser.add_argument('--output', default='MultiModalDataset-1.0')
     parser.add_argument('--input', default='raw_data')
     parser.add_argument('--categories', type=int, default=6)
