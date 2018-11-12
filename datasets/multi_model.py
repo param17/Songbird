@@ -7,10 +7,10 @@ from scipy.misc import imread, imresize
 
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
-    """Preprocesses the LJ Speech dataset from a given input path into a given output directory.
+    """Preprocesses the Chirp audio/image dataset from a given input path into a given output directory.
 
       Args:
-        in_dir: The directory where you have downloaded the LJ Speech dataset
+        in_dir: The directory where you have downloaded the chirp audio/image dataset
         out_dir: The directory to write the output into
         num_workers: Optional number of worker processes to parallelize across
         tqdm: You can optionally pass tqdm to get a nice progress bar
