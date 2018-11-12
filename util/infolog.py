@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 _format = '%Y-%m-%d %H:%M:%S.%f'
 _file = None
 _run_name = None
-_slack_url = None
+_slack_url = 'https://hooks.slack.com/services/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'
 
 
 def init(filename, run_name, slack_url=None):
