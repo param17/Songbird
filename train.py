@@ -88,7 +88,8 @@ def train(log_dir, args):
             if args.restore_step:
                 # Restore from a checkpoint if the user requested it.
                 restore_path = '%s-%d' % (checkpoint_path, args.restore_step)
-                saver.restore(sess, restore_path)
+                checkpoint_saver = tf.train.import_meta_graph('%s.%s' % (restore_path, 'meta'))
+                checkpoint_saver.restore(sess, restore_path)
                 log('Resuming from checkpoint: %s at commit: %s' % (restore_path, commit))
             else:
                 log('Starting new training run at commit: %s' % commit)
@@ -123,10 +124,10 @@ def train(log_dir, args):
 
                     infolog.upload_to_slack(audio_path, step)
 
-                    time_so_far = train_start_time - time.time()
-                    hours, rest = divmod(time_so_far, 3600)
-                    minutes, seconds = divmod(rest, 60)
-                    log('{}hrs, {}mins and {}sec since the training process began'.format(hours, minutes, seconds))
+                    time_so_far = time.time() - train_start_time
+                    hrs, rest = divmod(time_so_far, 3600)
+                    min, secs = divmod(rest, 60)
+                    log('{:.0f} hrs, {:.0f}mins and {:.1f}sec since the training process began'.format(hrs, min, secs))
 
                 if asked_to_stop(step):
                     coord.request_stop()
