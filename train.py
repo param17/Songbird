@@ -11,7 +11,7 @@ import traceback
 from datasets.datafeeder import DataFeeder
 from hparams import hparams, hparams_debug_string
 from models import create_model
-from util import audio, infolog, plot, ValueWindow
+from util import audio, infolog, ValueWindow
 
 log = infolog.log
 
@@ -41,6 +41,13 @@ def add_stats(model):
 
 def time_string():
     return datetime.now().strftime('%Y-%m-%d %H:%M')
+
+
+def asked_to_stop(curr_step):
+    threshold = int(os.environ.get('STEPS_THRESHOLD', None))
+    if threshold is None:
+        return False
+    return curr_step >= threshold
 
 
 def train(log_dir, args):
@@ -74,6 +81,7 @@ def train(log_dir, args):
     # Train!
     with tf.Session() as sess:
         try:
+            train_start_time = time.time()
             summary_writer = tf.summary.FileWriter(log_dir, sess.graph)
             sess.run(tf.global_variables_initializer())
 
@@ -81,9 +89,9 @@ def train(log_dir, args):
                 # Restore from a checkpoint if the user requested it.
                 restore_path = '%s-%d' % (checkpoint_path, args.restore_step)
                 saver.restore(sess, restore_path)
-                log('Resuming from checkpoint: %s at commit: %s' % (restore_path, commit), slack=True)
+                log('Resuming from checkpoint: %s at commit: %s' % (restore_path, commit))
             else:
-                log('Starting new training run at commit: %s' % commit, slack=True)
+                log('Starting new training run at commit: %s' % commit)
 
             feeder.start_in_session(sess)
 
@@ -97,7 +105,7 @@ def train(log_dir, args):
                 log(message, slack=(step % args.checkpoint_interval == 0))
 
                 if loss > 100 or math.isnan(loss):
-                    log('Loss exploded to %.05f at step %d!' % (loss, step), slack=True)
+                    log('Loss exploded to %.05f at step %d!' % (loss, step))
                     raise Exception('Loss Exploded')
 
                 if step % args.summary_interval == 0:
@@ -107,16 +115,24 @@ def train(log_dir, args):
                 if step % args.checkpoint_interval == 0:
                     log('Saving checkpoint to: %s-%d' % (checkpoint_path, step))
                     saver.save(sess, checkpoint_path, global_step=step)
-                    log('Saving audio and alignment...')
-                    input_seq, spectrogram, alignment = sess.run([
-                        model.inputs[0], model.linear_outputs[0], model.alignments[0]])
+                    log('Saving audio...')
+                    _, spectrogram, _ = sess.run([model.inputs[0], model.linear_outputs[0], model.alignments[0]])
                     waveform = audio.inv_spectrogram(spectrogram.T)
-                    audio.save_wav(waveform, os.path.join(log_dir, 'step-%d-audio.wav' % step))
-                    plot.plot_alignment(alignment, os.path.join(log_dir, 'step-%d-align.png' % step),
-                        info='%s, %s, %s, step=%d, loss=%.5f' % (args.model, commit, time_string(), step, loss))
+                    audio_path = os.path.join(log_dir, 'step-%d-audio.wav' % step)
+                    audio.save_wav(waveform, audio_path)
+
+                    infolog.upload_to_slack(audio_path, step)
+
+                    time_so_far = train_start_time - time.time()
+                    hours, rest = divmod(time_so_far, 3600)
+                    minutes, seconds = divmod(rest, 60)
+                    log('{}hrs, {}mins and {}sec since the training process began'.format(hours, minutes, seconds))
+
+                if asked_to_stop(step):
+                    coord.request_stop()
 
         except Exception as e:
-            log('Exiting due to exception: %s' % e, slack=True)
+            log('Exiting due to exception: %s' % e)
             traceback.print_exc()
             coord.request_stop(e)
 
@@ -135,7 +151,8 @@ def main():
                         help='Steps between running summary ops.')
     parser.add_argument('--checkpoint_interval', type=int, default=1000,
                         help='Steps between writing checkpoints.')
-    parser.add_argument('--slack_url', help='Slack webhook URL to get periodic reports.')
+    parser.add_argument('--slack_url', help='Slack webhook URL to get periodic reports.',
+                        default='https://hooks.slack.com/services/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')
     parser.add_argument('--tf_log_level', type=int, default=1, help='Tensorflow C++ log level.')
     parser.add_argument('--git', action='store_true', help='If set, verify that the client is clean.')
     args = parser.parse_args()
