@@ -15,11 +15,11 @@ def __load_and_save_images(category, config):
     index = 0
     image_limit = config.imgs
     for path, _, filenames in os.walk(category_input_base_dir):
-        for i in trange(len(filenames), desc='Processing images'):
+        for file in filenames:
             if image_limit != -1 and index >= image_limit:
                 break
 
-            image_path = os.path.join(category_input_base_dir, filenames[i])
+            image_path = os.path.join(category_input_base_dir, file)
             raw_image = imread(image_path, mode='RGB')
             # Pre-process image
             preprocessed_image = imresize(raw_image, (224, 224, 3))
@@ -37,11 +37,11 @@ def __preprocess_audio(category, config):
     index = 0
     audio_limit = config.wavs
     for path, _, filenames in os.walk(category_input_base_dir):
-        for i in trange(len(filenames), desc='Processing audio'):
+        for file in filenames:
             if audio_limit != -1 and index >= audio_limit:
                 break
 
-            __generate_spectrograms(os.path.join(category_input_base_dir, filenames[i]), category, index, out_dir)
+            __generate_spectrograms(os.path.join(category_input_base_dir, file), category, index, out_dir)
 
             index += 1
     return index
