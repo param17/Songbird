@@ -84,12 +84,6 @@ tacotron (project dir)
 
 2. **Data generation**
 
-    * Move raw data into specific directories and create metadata.
-
-    ```
-    python3 dataset_generator.py
-    ```
-
     * Download pretrained [VGG19 NPY](https://mega.nz/#!xZ8glS6J!MAnE91ND_WyfZ_8mvkuSa2YcA7q-1ehfSm-Q1fxOvvs) to your project root directory.
 
     * Preprocess data and generate dataset.

@@ -1,80 +1,85 @@
+import os
+import itertools
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
+from tqdm import trange
+
 import numpy as np
-import os
-from util import audio
 from scipy.misc import imread, imresize
 
+from util import audio
 
-def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
-    """Preprocesses the Chirp audio/image dataset from a given input path into a given output directory.
 
-      Args:
-        in_dir: The directory where you have downloaded the chirp audio/image dataset
-        out_dir: The directory to write the output into
-        num_workers: Optional number of worker processes to parallelize across
-        tqdm: You can optionally pass tqdm to get a nice progress bar
+def __load_and_save_images(category, config):
+    category_input_base_dir = os.path.join(config.base_dir, config.input, 'imgs', str(category))
+    index = 0
+    image_limit = config.imgs
+    for path, _, filenames in os.walk(category_input_base_dir):
+        for i in trange(len(filenames), desc='Processing images'):
+            if image_limit != -1 and index >= image_limit:
+                break
 
-      Returns:
-        A list of tuples describing the training examples. This should be written to train.txt
-    """
-
-    # We use ProcessPoolExecutor to parallelize across processes. This is just an optimization and you
-    # can omit it and just call _process_utterance on each input if you want.
-    executor = ProcessPoolExecutor(max_workers=num_workers)
-    futures = []
-    index = 1
-    with open(os.path.join(in_dir, 'metadata.txt'), encoding='utf-8') as f:
-        for line in f:
-            parts = line.strip().split('|')
-            wav_path = os.path.join(in_dir, 'wavs', parts[0])
-            image_path = os.path.join(in_dir, 'imgs', parts[1])
-            futures.append(executor.submit(partial(_process_chirps, out_dir, index, wav_path, image_path)))
+            image_path = os.path.join(category_input_base_dir, filenames[i])
+            raw_image = imread(image_path, mode='RGB')
+            # Pre-process image
+            preprocessed_image = imresize(raw_image, (224, 224, 3))
+            # Write image to disk
+            preprocessed_image_filename = '{}bird{}.npy'.format(category, index)
+            np.save(os.path.join(config.base_dir, config.output, preprocessed_image_filename), preprocessed_image,
+                    allow_pickle=False)
             index += 1
-    return [future.result() for future in tqdm(futures)]
+    return index
 
 
-def _process_chirps(out_dir, index, wav_path, image_path):
-    """Preprocesses a single Chirp audio/image pair.
+def __preprocess_audio(category, config):
+    category_input_base_dir = os.path.join(config.base_dir, config.input, 'wavs', str(category))
+    out_dir = os.path.join(config.base_dir, config.output)
+    index = 0
+    audio_limit = config.wavs
+    for path, _, filenames in os.walk(category_input_base_dir):
+        for i in trange(len(filenames), desc='Processing audio'):
+            if audio_limit != -1 and index >= audio_limit:
+                break
 
-    This writes the mel and linear scale spectrograms to disk and returns a tuple to write
-    to the train.txt file.
+            __generate_spectrograms(os.path.join(category_input_base_dir, filenames[i]), category, index, out_dir)
 
-    Args:
-      out_dir: The directory to write the spectrograms into
-      index: The numeric index to use in the spectrogram filenames.
-      wav_path: Path to the audio file containing the speech input
-      image_path: The text spoken in the input audio file
+            index += 1
+    return index
 
-    Returns:
-      A (spectrogram_filename, mel_filename, n_frames, text) tuple to write to train.txt
-    """
 
-    # Load the audio to a numpy array:
-    wav = audio.load_wav(wav_path)
-
+def __generate_spectrograms(file_path, category, index, out_dir):
+    wav = audio.load_wav(file_path)
     # Compute the linear-scale spectrogram from the wav:
     spectrogram = audio.spectrogram(wav).astype(np.float32)
-    n_frames = spectrogram.shape[1]
 
     # Compute a mel-scale spectrogram from the wav:
     mel_spectrogram = audio.melspectrogram(wav).astype(np.float32)
-
     # Write the spectrograms to disk:
-    spectrogram_filename = 'chirp-spec-%05d.npy' % index
-    mel_filename = 'chirp-mel-%05d.npy' % index
+    spectrogram_filename = '{}spec{}.npy'.format(category, index)
+    mel_filename = '{}mel{}.npy'.format(category, index)
     np.save(os.path.join(out_dir, spectrogram_filename), spectrogram.T, allow_pickle=False)
     np.save(os.path.join(out_dir, mel_filename), mel_spectrogram.T, allow_pickle=False)
 
-    # Load image into numpy array
-    raw_image = imread(image_path, mode='RGB')
 
-    # Pre-process image
-    preprocessed_image = imresize(raw_image, (224, 224, 3))
+def __generate_metadata(category, image_count, audio_count):
+    meta_data = []
+    for image_index, audio_index in itertools.product(range(image_count), range(audio_count)):
+        image_file_name = '{}bird{}.npy'.format(category, image_index)
+        spec_file_name = '{}spec{}.npy'.format(category, audio_index)
+        mel_file_name = '{}mel{}.npy'.format(category, audio_index)
+        meta_data.append('{}|{}|{}\n'.format(spec_file_name, mel_file_name, image_file_name))
+    return meta_data
 
-    # Write image to disk
-    preprocessed_image_filename = 'bird-%05d.npy' % index
-    np.save(os.path.join(out_dir, preprocessed_image_filename), preprocessed_image, allow_pickle=False)
 
-    # Return a tuple describing this training example:
-    return spectrogram_filename, mel_filename, n_frames, preprocessed_image_filename
+def __preprocess_in_parallel(category, config):
+    image_count = __load_and_save_images(category, config)
+    audio_count = __preprocess_audio(category, config)
+    return __generate_metadata(category, image_count, audio_count)
+
+
+def build(config):
+    executor = ProcessPoolExecutor(max_workers=config.num_workers)
+    meta_data = []
+    for category in trange(config.categories, desc='# Category progress'):
+        meta_data += executor.submit(partial(__preprocess_in_parallel, category, config)).result()
+    return meta_data

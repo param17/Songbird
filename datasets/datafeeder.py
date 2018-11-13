@@ -24,8 +24,7 @@ class DataFeeder(threading.Thread):
         self._datadir = os.path.dirname(metadata_filename)
         with open(metadata_filename, encoding='utf-8') as f:
             self._metadata = [line.strip().split('|') for line in f]
-            hours = sum((int(x[2]) for x in self._metadata)) * hparams.frame_shift_ms / (3600 * 1000)
-            log('Loaded metadata for %d examples (%.2f hours)' % (len(self._metadata), hours))
+            log('Loaded metadata for %d examples' % (len(self._metadata)))
 
         # Create placeholders for inputs and targets. Don't specify batch size because we want to
         # be able to feed different sized batches at eval time.
@@ -81,7 +80,7 @@ class DataFeeder(threading.Thread):
         meta = self._metadata[self._offset]
         self._offset += 1
 
-        image = np.load(os.path.join(self._datadir, meta[3]))
+        image = np.load(os.path.join(self._datadir, meta[2]))
         assert image.shape == (self._hparams.image_dim, self._hparams.image_dim, 3)
         input_data = image.astype('float32')
         linear_target = np.load(os.path.join(self._datadir, meta[0]))
