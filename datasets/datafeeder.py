@@ -67,7 +67,7 @@ class DataFeeder(threading.Thread):
         batches = [examples[i:i + n] for i in range(0, len(examples), n)]
         random.shuffle(batches)
 
-        log('Generated %d batches of size %d in %.03f sec' % (len(batches), n, time.time() - start))
+        log('Generated %d batches of size %d in %.03f sec' % (len(batches), n, time.time() - start), False)
         for batch in batches:
             feed_dict = dict(zip(self._placeholders, _prepare_batch(batch, r)))
             self._session.run(self._enqueue_op, feed_dict=feed_dict)
