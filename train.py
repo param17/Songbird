@@ -133,7 +133,7 @@ def train(log_dir, args):
                     coord.request_stop()
 
         except Exception as e:
-            log('Exiting due to exception: %s' % e)
+            log('@channel: Exiting due to exception: %s' % e)
             traceback.print_exc()
             coord.request_stop(e)
 
@@ -152,7 +152,7 @@ def main():
                         help='Steps between running summary ops.')
     parser.add_argument('--checkpoint_interval', type=int, default=1000,
                         help='Steps between writing checkpoints.')
-    parser.add_argument('--slack_url', help='Slack webhook URL to get periodic reports.',
+    parser.add_argument('--slack_url', help='Slack web-hook URL to get periodic reports.',
                         default='https://hooks.slack.com/services/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')
     parser.add_argument('--tf_log_level', type=int, default=1, help='Tensorflow C++ log level.')
     parser.add_argument('--git', action='store_true', help='If set, verify that the client is clean.')
