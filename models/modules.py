@@ -130,7 +130,7 @@ class Vgg19:
 
         start_time = time.time()
         log('Building VGG19. Started at: %ds' % start_time)
-        rgb_scaled = tf.cast(rgb, tf.float32) * 255.0
+        rgb_scaled = rgb * 255.0
 
         # Convert RGB to BGR
         red, green, blue = tf.split(axis=3, num_or_size_splits=3, value=rgb_scaled)
@@ -226,3 +226,7 @@ class Vgg19:
 
     def get_fc_weight(self, name):
         return tf.constant(self.data_dict[name][0], name="weights")
+
+
+def vgg19_pretrained_last_fc(rgb_input, model_path):
+    return Vgg19(model_path).build(rgb_input)
