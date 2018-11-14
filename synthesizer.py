@@ -12,7 +12,7 @@ from util import audio
 class Synthesizer:
     def load(self, checkpoint_path, vgg19_path, model_name='tacotron'):
         print('Constructing model: %s' % model_name)
-        inputs = tf.placeholder(tf.int32, [1, hparams.image_dim, hparams.image_dim, 3], 'inputs')
+        inputs = tf.placeholder(tf.float32, [1, hparams.image_dim, hparams.image_dim, 3], 'inputs')
         with tf.variable_scope('model') as _:
             self.model = create_model(model_name, hparams)
             self.model.initialize(inputs, vgg19_path)
@@ -29,7 +29,7 @@ class Synthesizer:
             for test_file in filenames:
                 if str.endswith(test_file, '.png'):
                     base_file_name, _ = os.path.splitext(test_file)
-                    raw_image = imread(test_file, mode='RGB')
+                    raw_image = imread(os.path.join(path, test_file), mode='RGB')
                     processed_image = imresize(raw_image, (224, 224, 3))
 
                     feed_dict = {
