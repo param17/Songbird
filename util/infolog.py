@@ -46,6 +46,9 @@ def _close_logfile():
 
 
 def _upload_wav_file(audio_path, step):
+    if os.environ.get('NOTIFY_SLACK', False) != 'True':
+        return
+
     with open(audio_path, 'rb') as file_content:
         response = _slack_client.api_call(
             "files.upload",

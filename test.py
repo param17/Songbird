@@ -1,5 +1,4 @@
 import argparse
-import datetime
 import os
 
 from synthesizer import Synthesizer
@@ -8,18 +7,16 @@ from synthesizer import Synthesizer
 def __get_output_wav_path(args):
     output_dir = os.path.join(args.base_dir, 'out')
     os.makedirs(output_dir, exist_ok=True)
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-    return os.path.join(output_dir, 'eval-{}.wav'.format(timestamp))
+    return output_dir
 
 
 def __run_eval(args):
     synth = Synthesizer()
     synth.load(args.checkpoint, os.path.join(args.base_dir, args.vgg19_path))
-    wav_path = __get_output_wav_path(args)
-    print('Synthesizing: %s' % wav_path)
-    with open(wav_path, 'wb') as f:
-        f.write(synth.synthesize(args.image_path))
-    print('Wav - {} generated successfully!'.format(wav_path))
+    output_wav_dir = __get_output_wav_path(args)
+    print('Synthesizing: %s' % output_wav_dir)
+    synth.synthesize(args.image_path, output_wav_dir)
+    print('Done testing! Check the {} folder for samples'.format(output_wav_dir))
 
 
 def main():
