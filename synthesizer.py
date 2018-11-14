@@ -21,8 +21,8 @@ class Synthesizer:
         print('Loading checkpoint: %s' % checkpoint_path)
         self.session = tf.Session()
         self.session.run(tf.global_variables_initializer())
-        saver = tf.train.Saver()
-        saver.restore(self.session, checkpoint_path)
+        checkpoint_saver = tf.train.import_meta_graph('%s.%s' % (checkpoint_path, 'meta'))
+        checkpoint_saver.restore(self.session, checkpoint_path)
 
     def synthesize(self, image_path):
         raw_image = imread(image_path, mode='RGB')
