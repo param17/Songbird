@@ -3,6 +3,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from scipy.misc import imread, imresize
+from tqdm import trange
 
 from hparams import hparams
 from models import create_model
@@ -26,7 +27,8 @@ class Synthesizer:
 
     def synthesize(self, images_dir, output_wav_dir):
         for path, _, filenames in os.walk(images_dir):
-            for test_file in filenames:
+            for i in trange(len(filenames)):
+                test_file = filenames[i]
                 if str.endswith(test_file, '.png'):
                     base_file_name, _ = os.path.splitext(test_file)
                     raw_image = imread(os.path.join(path, test_file), mode='RGB')
