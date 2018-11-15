@@ -12,7 +12,7 @@ class Tacotron:
     def __init__(self, hparams):
         self._hparams = hparams
 
-    def initialize(self, inputs, vgg19_model_path, mel_targets=None, linear_targets=None):
+    def initialize(self, inputs, vgg19_model_path, mel_targets=None, linear_targets=None, input_names=None):
         """Initializes the model for inference.
 
         Sets "mel_outputs", "linear_outputs", and "alignments" fields.
@@ -96,6 +96,7 @@ class Tacotron:
             self.alignments = alignments
             self.mel_targets = mel_targets
             self.linear_targets = linear_targets
+            self.input_names = input_names
             log('Initialized Tacotron model. Dimensions: ')
             log('  prenet out:              %d' % prenet_outputs.shape[-1])
             log('  encoder out:             %d' % encoder_outputs.shape[-1])
